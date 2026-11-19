@@ -89,6 +89,70 @@ resource "aws_s3_bucket_policy" "alb_logs" {
   depends_on = [aws_s3_bucket_public_access_block.alb_logs]
 }
 
+# Destination for S3 access logs from the ALB log bucket.
+# S3 destination buckets should not log themselves, to avoid recursive logs.
+#trivy:ignore:AWS-0089
+resource "aws_s3_bucket" "alb_logs_audit" {
+  bucket        = "${local.name}-alb-log-audit-${data.aws_caller_identity.current.account_id}"
+  force_destroy = var.force_destroy
+}
+
+resource "aws_s3_bucket_public_access_block" "alb_logs_audit" {
+  bucket                  = aws_s3_bucket.alb_logs_audit.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs_audit" {
+  bucket = aws_s3_bucket.alb_logs_audit.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+data "aws_iam_policy_document" "alb_logs_audit" {
+  statement {
+    sid       = "AllowS3ServerAccessLogDelivery"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.alb_logs_audit.arn}/alb-logs/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["logging.s3.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = [aws_s3_bucket.alb_logs.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "alb_logs_audit" {
+  bucket = aws_s3_bucket.alb_logs_audit.id
+  policy = data.aws_iam_policy_document.alb_logs_audit.json
+}
+
+resource "aws_s3_bucket_logging" "alb_logs" {
+  bucket        = aws_s3_bucket.alb_logs.id
+  target_bucket = aws_s3_bucket.alb_logs_audit.id
+  target_prefix = "alb-logs/"
+
+  depends_on = [aws_s3_bucket_policy.alb_logs_audit]
+}
+
 # ---------- Load balancer ----------
 resource "aws_lb" "main" {
   name                       = "${local.name}-alb"
