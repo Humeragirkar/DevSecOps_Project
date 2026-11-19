@@ -1,0 +1,11 @@
+aws_region          = "ap-south-1"
+project             = "secureapp"
+environment         = "dev"
+owner               = "platform-team@example.com"
+cost_center         = "CC-1234"
+data_classification = "confidential"
+
+# acm_certificate_arn = "arn:aws:acm:ap-south-1:111122223333:certificate/xxxx"  # required for prod
+# alarm_email         = "oncall@example.com"
+# single_nat_gateway  = false   # prod
+# allowed_ingress_cidrs = ["203.0.113.0/24"]
