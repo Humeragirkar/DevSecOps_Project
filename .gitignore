@@ -21,3 +21,9 @@ terraform.tfvars
 .idea/
 .DS_Store
 Thumbs.db
+
+
+# Local self-signed TLS certificates
+*.key
+*.crt
+*.pem
