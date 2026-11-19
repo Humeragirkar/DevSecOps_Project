@@ -93,7 +93,7 @@ resource "aws_s3_bucket_policy" "alb_logs" {
 resource "aws_lb" "main" {
   name                       = "${local.name}-alb"
   load_balancer_type         = "application"
-  internal                   = false
+  internal                   = true
   subnets                    = aws_subnet.public[*].id
   security_groups            = [aws_security_group.alb.id]
   drop_invalid_header_fields = true
