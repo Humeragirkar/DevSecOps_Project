@@ -6,6 +6,8 @@ cost_center         = "CC-1234"
 data_classification = "confidential"
 allowed_ingress_cidrs = ["203.0.113.0/24"]
 
+availability_zone_ids = ["aps1-az1", "aps1-az3"]
+
 
 # acm_certificate_arn = "arn:aws:acm:ap-south-1:111122223333:certificate/xxxx"  # required for prod
 # alarm_email         = "oncall@example.com"

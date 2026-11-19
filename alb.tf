@@ -14,9 +14,22 @@ resource "aws_s3_bucket_public_access_block" "alb_logs" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_versioning" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
-  versioning_configuration { status = "Enabled" }
+resource "aws_s3_bucket_versioning" "alb_logs_audit" {
+  bucket = aws_s3_bucket.alb_logs_audit.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_notification" "alb_logs_audit" {
+  bucket      = aws_s3_bucket.alb_logs_audit.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "alb_logs" {
+  bucket      = aws_s3_bucket.alb_logs.id
+  eventbridge = true
 }
 
 # ALB access logs only support SSE-S3 (not SSE-KMS); SSE-KMS prevents ALB log delivery.
@@ -32,11 +45,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
 }
 
 
-resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_audit" {
+  bucket = aws_s3_bucket.alb_logs_audit.id
 
   rule {
-    id     = "expire-logs"
+    id     = "expire-audit-logs"
     status = "Enabled"
 
     filter {}
@@ -47,10 +60,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
 
     noncurrent_version_expiration {
       noncurrent_days = 30
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
     }
   }
 }
