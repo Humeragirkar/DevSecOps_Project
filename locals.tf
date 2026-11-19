@@ -1,7 +1,7 @@
 data "aws_availability_zones" "available" {
   state = "available"
 
-    filter {
+  filter {
     name   = "zone-id"
     values = var.availability_zone_ids
   }
