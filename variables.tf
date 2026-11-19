@@ -55,8 +55,7 @@ variable "single_nat_gateway" {
 
 variable "allowed_ingress_cidrs" {
   type        = list(string)
-  default     = ["111.125.237.191/32"]
-  description = "Public IP allowed to access the ALB for the assessment lab."
+  description = "CIDR ranges permitted to access the ALB."
 }
 
 variable "acm_certificate_arn" {
