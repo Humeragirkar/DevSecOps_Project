@@ -46,7 +46,7 @@ jobs:
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
-          severity: HIGH,CRITICAL
+          severity: HIGH,CRITICAL,LOW
           exit-code: '1'
           format: sarif
           output: trivy-results.sarif
