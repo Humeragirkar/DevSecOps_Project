@@ -17,6 +17,16 @@ variable "environment" {
   }
 }
 
+variable "availability_zone_ids" {
+  description = "Explicit Availability Zone IDs used by this deployment"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.availability_zone_ids) >= 2
+    error_message = "Provide at least two available Availability Zone IDs."
+  }
+}
+
 # ---- Governance tags ----
 variable "owner" {
   type        = string

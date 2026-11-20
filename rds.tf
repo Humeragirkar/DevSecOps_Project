@@ -53,7 +53,7 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
   publicly_accessible    = false
-  multi_az               = var.db_multi_az
+  multi_az               = true
   parameter_group_name   = aws_db_parameter_group.main.name
 
   iam_database_authentication_enabled = true
@@ -69,9 +69,12 @@ resource "aws_db_instance" "main" {
   final_snapshot_identifier  = "${local.name}-pg-final"
 
   # Monitoring
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  monitoring_interval             = 0
-  performance_insights_enabled    = false
+  enabled_cloudwatch_logs_exports       = ["postgresql", "upgrade"]
+  monitoring_interval                   = 60
+  monitoring_role_arn                   = aws_iam_role.rds_monitoring.arn
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+  performance_insights_kms_key_id       = aws_kms_key.main.arn
 
   tags = { Name = "${local.name}-pg" }
 }

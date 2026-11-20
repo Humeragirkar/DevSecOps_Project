@@ -1,26 +1,26 @@
 # ---------- Log groups (KMS-encrypted, retention enforced) ----------
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/ecs/${local.name}/app"
-  retention_in_days = var.log_retention_days
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
 }
 
 resource "aws_cloudwatch_log_group" "vpc_flow" {
   name              = "/vpc/${local.name}/flow-logs"
-  retention_in_days = var.log_retention_days
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
 }
 
 # RDS creates /aws/rds/instance/<id>/postgresql itself; pre-create to control retention + KMS.
 resource "aws_cloudwatch_log_group" "rds_postgresql" {
   name              = "/aws/rds/instance/${local.name}-pg/postgresql"
-  retention_in_days = var.log_retention_days
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
 }
 
 resource "aws_cloudwatch_log_group" "rds_upgrade" {
   name              = "/aws/rds/instance/${local.name}-pg/upgrade"
-  retention_in_days = var.log_retention_days
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
 }
 
@@ -110,7 +110,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_storage_low" {
 # ---------- WAF logs ----------
 resource "aws_cloudwatch_log_group" "waf" {
   name              = "aws-waf-logs-${local.name}"
-  retention_in_days = var.log_retention_days
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
 }
 

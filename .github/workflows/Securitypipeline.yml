@@ -41,13 +41,16 @@ jobs:
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: v0.76.2
+          tf-vars: terraform.tfvars.example
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
-          severity: HIGH,CRITICAL
+          severity: HIGH,CRITICAL,LOW
           exit-code: '1'
           format: sarif
           output: trivy-results.sarif
+          limit-severities-for-sarif: true
 
         
       - name: Upload Trivy report
