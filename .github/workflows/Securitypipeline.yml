@@ -29,9 +29,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  sonarqube-scan:
+    name: SAST Scan - SonarQube
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Run SonarQube analysis
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=Humeragirkar_DevSecOps_Project
+            -Dsonar.organization=humeragirkar
+            -Dsonar.sources=app
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
           
 
-   
   trivy-scan:
     name: Filesystem Security Scan - Trivy
     runs-on: ubuntu-latest
