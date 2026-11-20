@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   secret-scan:
@@ -45,7 +44,7 @@ jobs:
 
       - name: Install development dependencies
         run: |
-          python -m pip install --require-hashes -r app/requirements-dev.txt
+          python -m pip install --require-hashes --only-binary=:all: -r app/requirements-dev.txt
 
       - name: Run tests and generate coverage report
         run: |
@@ -97,6 +96,9 @@ jobs:
   trivy-scan:
     name: Filesystem Security Scan - Trivy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout source code
