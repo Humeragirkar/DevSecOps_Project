@@ -110,7 +110,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_storage_low" {
 # ---------- WAF logs ----------
 resource "aws_cloudwatch_log_group" "waf" {
   name              = "aws-waf-logs-${local.name}"
-  retention_in_days = var.log_retention_days
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
 }
 

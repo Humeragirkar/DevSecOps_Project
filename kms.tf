@@ -2,6 +2,9 @@
 
 data "aws_iam_policy_document" "kms" {
   # Retain account-level key administration through IAM.
+  #checkov:skip=CKV_AWS_109:Account root retains KMS key administration.
+  #checkov:skip=CKV_AWS_111:Account root retains KMS key administration.
+  #checkov:skip=CKV_AWS_356:Wildcard resource is required in this KMS key policy.
   statement {
     sid       = "EnableIAMPolicies"
     actions   = ["kms:*"]

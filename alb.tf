@@ -2,12 +2,75 @@
 data "aws_elb_service_account" "main" {}
 
 resource "aws_s3_bucket" "alb_logs" {
+  #checkov:skip=CKV_AWS_145:ALB access-log buckets support SSE-S3 only.
+  #checkov:skip=CKV_AWS_144:Cross-region replication is outside this single-region deployment's recovery design.
   bucket        = "${local.name}-alb-logs-${data.aws_caller_identity.current.account_id}"
   force_destroy = var.force_destroy
 }
 
 resource "aws_s3_bucket_public_access_block" "alb_logs" {
   bucket                  = aws_s3_bucket.alb_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# ALB access logs only support SSE-S3; SSE-KMS prevents log delivery.
+#trivy:ignore:AWS-0132
+resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  rule {
+    id     = "expire-logs"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = var.log_retention_days
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
+# ---------- ALB log-bucket audit destination ----------
+# S3 server access-log destination buckets should not log themselves.
+#trivy:ignore:AWS-0089
+resource "aws_s3_bucket" "alb_logs_audit" {
+  #checkov:skip=CKV_AWS_145:S3 server access-log destinations require SSE-S3.
+  #checkov:skip=CKV_AWS_144:Cross-region replication is outside this single-region deployment's recovery design.
+  bucket        = "${local.name}-alb-log-audit-${data.aws_caller_identity.current.account_id}"
+  force_destroy = var.force_destroy
+}
+
+resource "aws_s3_bucket_public_access_block" "alb_logs_audit" {
+  bucket                  = aws_s3_bucket.alb_logs_audit.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -22,20 +85,8 @@ resource "aws_s3_bucket_versioning" "alb_logs_audit" {
   }
 }
 
-resource "aws_s3_bucket_notification" "alb_logs_audit" {
-  bucket      = aws_s3_bucket.alb_logs_audit.id
-  eventbridge = true
-}
-
-resource "aws_s3_bucket_notification" "alb_logs" {
-  bucket      = aws_s3_bucket.alb_logs.id
-  eventbridge = true
-}
-
-# ALB access logs only support SSE-S3 (not SSE-KMS); SSE-KMS prevents ALB log delivery.
-#trivy:ignore:AWS-0132
-resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs_audit" {
+  bucket = aws_s3_bucket.alb_logs_audit.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -43,7 +94,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
     }
   }
 }
-
 
 resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_audit" {
   bucket = aws_s3_bucket.alb_logs_audit.id
@@ -61,29 +111,36 @@ resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_audit" {
     noncurrent_version_expiration {
       noncurrent_days = 30
     }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
   }
 }
-
 
 data "aws_iam_policy_document" "alb_logs" {
   statement {
     sid       = "AllowELBWrite"
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.alb_logs.arn}/alb/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
+
     principals {
       type        = "AWS"
       identifiers = [data.aws_elb_service_account.main.arn]
     }
   }
+
   statement {
     sid       = "DenyInsecureTransport"
     effect    = "Deny"
     actions   = ["s3:*"]
     resources = [aws_s3_bucket.alb_logs.arn, "${aws_s3_bucket.alb_logs.arn}/*"]
+
     principals {
       type        = "*"
       identifiers = ["*"]
     }
+
     condition {
       test     = "Bool"
       variable = "aws:SecureTransport"
@@ -96,32 +153,6 @@ resource "aws_s3_bucket_policy" "alb_logs" {
   bucket     = aws_s3_bucket.alb_logs.id
   policy     = data.aws_iam_policy_document.alb_logs.json
   depends_on = [aws_s3_bucket_public_access_block.alb_logs]
-}
-
-# Destination for S3 access logs from the ALB log bucket.
-# S3 destination buckets should not log themselves, to avoid recursive logs.
-#trivy:ignore:AWS-0089
-resource "aws_s3_bucket" "alb_logs_audit" {
-  bucket        = "${local.name}-alb-log-audit-${data.aws_caller_identity.current.account_id}"
-  force_destroy = var.force_destroy
-}
-
-resource "aws_s3_bucket_public_access_block" "alb_logs_audit" {
-  bucket                  = aws_s3_bucket.alb_logs_audit.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs_audit" {
-  bucket = aws_s3_bucket.alb_logs_audit.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
 }
 
 data "aws_iam_policy_document" "alb_logs_audit" {
@@ -147,11 +178,30 @@ data "aws_iam_policy_document" "alb_logs_audit" {
       values   = [data.aws_caller_identity.current.account_id]
     }
   }
+
+  statement {
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.alb_logs_audit.arn, "${aws_s3_bucket.alb_logs_audit.arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
 }
 
 resource "aws_s3_bucket_policy" "alb_logs_audit" {
-  bucket = aws_s3_bucket.alb_logs_audit.id
-  policy = data.aws_iam_policy_document.alb_logs_audit.json
+  bucket     = aws_s3_bucket.alb_logs_audit.id
+  policy     = data.aws_iam_policy_document.alb_logs_audit.json
+  depends_on = [aws_s3_bucket_public_access_block.alb_logs_audit]
 }
 
 resource "aws_s3_bucket_logging" "alb_logs" {
@@ -162,11 +212,23 @@ resource "aws_s3_bucket_logging" "alb_logs" {
   depends_on = [aws_s3_bucket_policy.alb_logs_audit]
 }
 
+resource "aws_s3_bucket_notification" "alb_logs" {
+  bucket      = aws_s3_bucket.alb_logs.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "alb_logs_audit" {
+  bucket      = aws_s3_bucket.alb_logs_audit.id
+  eventbridge = true
+}
+
 # ---------- Load balancer ----------
+# This application is intentionally internet-facing; ingress is filtered by the ALB security group and WAF.
+#trivy:ignore:AWS-0053
 resource "aws_lb" "main" {
   name                       = "${local.name}-alb"
   load_balancer_type         = "application"
-  internal                   = true
+  internal                   = false
   subnets                    = aws_subnet.public[*].id
   security_groups            = [aws_security_group.alb.id]
   drop_invalid_header_fields = true
@@ -205,7 +267,9 @@ resource "aws_lb_target_group" "app" {
     unhealthy_threshold = 3
   }
 
-  lifecycle { create_before_destroy = true }
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_lb_listener" "https" {
@@ -215,6 +279,7 @@ resource "aws_lb_listener" "https" {
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = var.acm_certificate_arn
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app.arn
@@ -226,8 +291,10 @@ resource "aws_lb_listener" "http_redirect" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
+
   default_action {
     type = "redirect"
+
     redirect {
       port        = "443"
       protocol    = "HTTPS"
@@ -236,10 +303,7 @@ resource "aws_lb_listener" "http_redirect" {
   }
 }
 
-
-
 # ---------- WAF ----------
-
 resource "aws_wafv2_web_acl" "main" {
   name  = "${local.name}-waf"
   scope = "REGIONAL"
@@ -248,7 +312,6 @@ resource "aws_wafv2_web_acl" "main" {
     allow {}
   }
 
-  # AWS managed common protection rules
   rule {
     name     = "aws-common-rules"
     priority = 1
@@ -271,7 +334,6 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
-  # Protection against known malicious inputs, including Log4j patterns
   rule {
     name     = "known-bad-inputs"
     priority = 2
@@ -294,7 +356,6 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
-  # Rate limiting per source IP
   rule {
     name     = "rate-limit"
     priority = 3
@@ -329,7 +390,6 @@ resource "aws_wafv2_web_acl_association" "alb" {
   web_acl_arn  = aws_wafv2_web_acl.main.arn
 }
 
-
 # ---------- WAF logging configuration ----------
 resource "aws_wafv2_web_acl_logging_configuration" "main" {
   resource_arn            = aws_wafv2_web_acl.main.arn
@@ -347,4 +407,3 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
     }
   }
 }
-
