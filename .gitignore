@@ -28,3 +28,14 @@ Thumbs.db
 *.crt
 *.pem
 
+# Python testing and coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
