@@ -92,6 +92,7 @@ jobs:
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
+            -Dsonar.tests=tests
 
   trivy-scan:
     name: Filesystem Security Scan - Trivy
