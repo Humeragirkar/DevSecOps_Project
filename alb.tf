@@ -313,8 +313,8 @@ resource "aws_wafv2_web_acl" "main" {
   }
 
   rule {
-    name     = "aws-common-rules"
-    priority = 1
+    name     = "anonymous-ip-list"
+    priority = 3
 
     override_action {
       none {}
@@ -322,14 +322,14 @@ resource "aws_wafv2_web_acl" "main" {
 
     statement {
       managed_rule_group_statement {
-        name        = "AWSManagedRulesCommonRuleSet"
+        name        = "AWSManagedRulesAnonymousIpList"
         vendor_name = "AWS"
       }
     }
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "${local.name}-common"
+      metric_name                = "${local.name}-anonymous-ip"
       sampled_requests_enabled   = true
     }
   }
